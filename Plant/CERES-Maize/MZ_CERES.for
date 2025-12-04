@@ -822,7 +822,8 @@ C----------------------------------------------------------------------
      &      VSTAGE, WTLF, WTNCAN, WTNLF, WTNSD, WTNST, WTNUP, !Output
      &      WTNVEG, XGNP, XHLAI, XLAI, XN, YIELD, CropStatus) !Output
           END SELECT
-        ENDIF   
+        ENDIF
+      ENDIF   
 
       CALL MZ_OPGROW(CONTROL, ISWITCH,  
      &    CANHT, CANWH, DTT, HI, HIP, KSTRES, MDATE, NLAYR, NSTRES, 
