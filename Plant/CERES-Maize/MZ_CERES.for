@@ -127,6 +127,7 @@ C======================================================================
       REAL            PODWT   
       REAL            PORMIN  
       REAL            PLTPOP    
+      REAL            PEAR
 C      REAL            PRLF
       REAL            PSTM
       REAL            PTF        
@@ -198,8 +199,6 @@ C      REAL            PRLF
       INTEGER         YRPLT 
       INTEGER         YRSIM    
 	REAL            Z2STAGE
-      REAL            PEST_SEVERITY
-      REAL            PEAR
 
 !     Added by W.D.B. for pest damage at CIMMYT 4/14/2001
 
@@ -442,7 +441,6 @@ C----------------------------------------------------------------------
      &    AREALF, CLW, CSW, LAGSD, LNGPEG, NR2, CARBO,    !Input
      &    PHTIM, PLTPOP, RTWTO, SLA, SLDOT, SOILPROP,     !Input
      &    SSDOT, STMWTO, TOPWT, WLFDOT, WTLF, YRPLT,      !Input
-     &    PEST_SEVERITY,                                  !Input
      &    RLV, SDNO, SHELN, SWIDOT,                       !Input/Output
      &    VSTAGE, WSHIDT, WTSD, WTSHE,                    !Input/Output
      &    ASMDOT, DISLA, NPLTD, PPLTD,                    !Output
@@ -451,25 +449,21 @@ C-----------------------------------------------------------------------
 C                     DYNAMIC = SEASINIT
 C-----------------------------------------------------------------------
 
-            ELSEIF(DYNAMIC.EQ.SEASINIT) THEN
+      ELSEIF(DYNAMIC.EQ.SEASINIT) THEN
 
-!-----------------------------------------------------------------------
-
-!     Subroutine IPPARM reads FILEP, the PEST progress file.
-
-!-----------------------------------------------------------------------
-
-        IF (ISWDIS.EQ.'Y') THEN
+C-----------------------------------------------------------------------
+C     Subroutine IPPARM reads FILEP, the PEST progress file.
+C-----------------------------------------------------------------------
+          IF (ISWDIS.EQ.'Y') THEN
           CALL PEST(CONTROL, ISWITCH, 
      &    AREALF, CLW, CSW, LAGSD, LNGPEG, NR2, CARBO,    !Input
      &    PHTIM, PLTPOP, RTWTO, SLA, SLDOT, SOILPROP,     !Input
      &    SSDOT, STMWTO, TOPWT, WLFDOT, WTLF, YRPLT,      !Input
-     &    PEST_SEVERITY,                                  !Input
      &    RLV, SDNO, SHELN, SWIDOT,                       !Input/Output
      &    VSTAGE, WSHIDT, WTSD, WTSHE,                    !Input/Output
      &    ASMDOT, DISLA, NPLTD, PPLTD,                    !Output
      &    SDDES, WLIDOT, WRIDOT, WSIDOT,SDWT)             !Output
-        ENDIF
+          ENDIF
       
           DO I = 1, 20
               STNAME(I) = '          '
@@ -602,11 +596,13 @@ C----------------------------------------------------------------------
 C----------------------------------------------------------------------
 
       ELSEIF(DYNAMIC.EQ.RATE) THEN
+
+
+        IF (ISWDIS.EQ.'Y') THEN
           CALL PEST(CONTROL, ISWITCH, 
      &    AREALF, CLW, CSW, LAGSD, LNGPEG, NR2, CARBO,    !Input
      &    PHTIM, PLTPOP, RTWTO, SLA, SLDOT, SOILPROP,     !Input
      &    SSDOT, STMWTO, TOPWT, WLFDOT, WTLF, YRPLT,      !Input
-     &    PEST_SEVERITY,                                  !Input
      &    RLV, SDNO, SHELN, SWIDOT,                       !Input/Output
      &    VSTAGE, WSHIDT, WTSD, WTSHE,                    !Input/Output
      &    ASMDOT, DISLA, NPLTD, PPLTD,                    !Output
@@ -626,7 +622,6 @@ C----------------------------------------------------------------------
      &    AREALF, CLW, CSW, LAGSD, LNGPEG, NR2, CARBO,    !Input
      &    PHTIM, PLTPOP, RTWTO, SLA, SLDOT, SOILPROP,     !Input
      &    SSDOT, STMWTO, TOPWT, WLFDOT, WTLF, YRPLT,      !Input
-     &    PEST_SEVERITY,                                  !Input
      &    RLV, SDNO, SHELN, SWIDOT,                       !Input/Output
      &    VSTAGE, WSHIDT, WTSD, WTSHE,                    !Input/Output
      &    ASMDOT, DISLA, NPLTD, PPLTD,                    !Output
@@ -855,7 +850,6 @@ C----------------------------------------------------------------------
      &    AREALF, CLW, CSW, LAGSD, LNGPEG, NR2, CARBO,    !Input
      &    PHTIM, PLTPOP, RTWTO, SLA, SLDOT, SOILPROP,     !Input
      &    SSDOT, STMWTO, TOPWT, WLFDOT, WTLF, YRPLT,      !Input
-     &    PEST_SEVERITY,                                  !Input
      &    RLV, SDNO, SHELN, SWIDOT,                       !Input/Output
      &    VSTAGE, WSHIDT, WTSD, WTSHE,                    !Input/Output
      &    ASMDOT, DISLA, NPLTD, PPLTD,                    !Output

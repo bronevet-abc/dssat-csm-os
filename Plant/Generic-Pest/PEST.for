@@ -36,7 +36,6 @@ C=======================================================================
      &    AREALF, CLW, CSW, LAGSD, LNGPEG, NR2, PGAVL,    !Input
      &    PHTIM, PLTPOP, RTWT, SLA, SLDOT, SOILPROP,      !Input
      &    SSDOT, STMWT, TOPWT, WLFDOT, WTLF, YRPLT,       !Input
-     &    PEST_SEVERITY,                                  !Input
      &    RLV, SDNO, SHELN, SWIDOT,                       !Input/Output
      &    VSTAGE, WSHIDT, WTSD, WTSHE,                    !Input/Output
      &    ASMDOT, DISLA, NPLTD, PPLTD,                    !Output
@@ -58,7 +57,6 @@ C=======================================================================
       CHARACTER*12  FILEP, FILET
       CHARACTER*30  FILEIO
       CHARACTER*80  PATHPE, PATHEX
-      CHARACTER*2   CROP
 
       INTEGER DYNAMIC, LUNIO, MULTI, PCN
 
@@ -74,7 +72,6 @@ C=======================================================================
       REAL PHTIM(NCOHORTS)
       REAL PDCF1(MAXPEST,6)
       REAL YPL(6,MAXPEST)
-      REAL PEST_SEVERITY
 
 C     Leaf Variables
       REAL TLFAD, PLFAD, TLFMD, PLFMD, PCLMT, PCLMA
@@ -143,7 +140,6 @@ C     Photosynthesis Variables
       LUNIO   = CONTROL % LUNIO
       MULTI   = CONTROL % MULTI
       YRDOY   = CONTROL % YRDOY
-      CROP    = CONTROL % CROP
 
       ISWDIS  = ISWITCH % ISWDIS
 
@@ -366,12 +362,6 @@ C-----------------------------------------------------------------------
      &    CRTM, CSDM, CSDN, CSHM, CSHN, CSTEM, DISLA, DISLAP,   
      &    LAIDOT, PPLTD, RLFDOT, RLVDOT, SDIDOT, SHIDOT, 
      &    SWIDOT, WLIDOT, WRIDOT, WSIDOT, WSHIDT, YRPLT)     
-
-      IF (CROP .EQ. 'MZ' .AND. PID(1) .EQ. 'MZINF') THEN
-        WLIDOT = WTLF * PEST_SEVERITY * 0.01
-        WSIDOT = STMWT * PEST_SEVERITY * 0.01
-        WRIDOT = RTWT * PEST_SEVERITY * 0.01
-      ENDIF
 
 !***********************************************************************
 !***********************************************************************
