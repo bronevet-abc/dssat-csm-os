@@ -9,78 +9,83 @@ Address
 @SITE
 Site
 
-*TREATMENTS                        -------------FACTOR LEVELS------------
+*TREATMENTS -------------------------FACTOR LEVELS------------
 @N R O C TNAME.................... CU FL SA IC MP MI MF MR MC MT ME MH SM
- 1 1 0 0 Test Treatment             1  1  0  1  1  0  0  0  0  0  0  0  1
+ 1 1 1 0 AG9010 - Rainfed           1  1  0  1  1  1  1  0  0  1  0  0  1
 
 *CULTIVARS
 @C CR INGENO CNAME
  1 MZ IB0001 Generic Maize
 
 *FIELDS
-@L ID_FIELD WSTA....  FLSA  FLOB  FLDT  FLDD  FLDS  FLST SLTX  SLDP  ID_SOIL
- 1 TEST0001 UFGA -99   -99   -99   -99   -99   -99   -99 -99    180  UFGA0001
+@L ID_FIELD WSTA....  FLSA  FLOB  FLDT  FLDD  FLDS  FLST  SLTX  SLDP ID_SOIL  FLNAME
+ 1 MZCER048 UFGA       -99     0 DR000     0     0     0   -99   120 IB00720001  RAINFED EXPERIMENT
+@L ...........XCRD ...........YCRD .....ELEV .............AREA .SLEN .FLWR .SLAS FLHST FHDUR
+ 1            -90.3           30.6       -99               -99   -99   -99   -99   -99   -99
 
 *INITIAL CONDITIONS
-@C   PCR ICDAT  ICRT  ICND  ICRN  ICRE  ICWD  ICRES ICREN ICREP ICRIP ICRID ICNAME
- 1    MZ 01001   -99   -99     1     1   -99   -99   -99   -99   -99   -99
+@C   PCR ICDAT  ICRT  ICND  ICRN  ICRE  ICWD ICRES ICREN ICREP ICRIP ICRID ICNAME
+ 1    MZ 01001   -99   -99     1     1   -99  5100   1.5   -99   100    15 rainfed
+@C  ICBL  SH2O  SNH4  SNO3
+ 1     5  0.25     1    10
+ 1    15  0.25     1    10
+ 1    30   0.4   0.5     3
+ 1    60   0.4   0.2   0.5
+ 1    90   0.4   0.1   0.2
+ 1   120   0.4   0.1   0.2
+ 1   150   0.4   0.1   0.2
 
 *PLANTING DETAILS
-@P PDATE EDATE  PPOP  PPOE  PLME  PLDS  PLRS  PLRD  PLDP  PLWT  PAGE  PENV  PLPH  SPRL                        PLNAME
- 1 01005   -99   7.0   7.0     S     R    80     0     5   -99   -99   -99   -99   -99                        -99
+@P PDATE EDATE  PPOP  PPOE  PLME  PLDS  PLRS  PLRD  PLDP  PLWT  PAGE  PENV  PLPH  SPRL PLNAME
+ 1 01115 01125     7     7     S     R    76     0     7   -99   -99   -99   -99     0 -99
+
+*IRRIGATION AND WATER MANAGEMENT
+@I  EFIR  IDEP  ITHR  IEPT  IOFF  IAME  IAMT IRNAME
+ 1   0.9    30    50   100 GS000 IR001    10 -99
+@I IDATE  IROP IRVAL
+ 1 01116 IR004    20
+ 1 01135 IR004    20
+ 1 01155 IR004    15
+ 1 01140 IR004    15
+ 1 01155 IR004    15
+ 1 01175 IR004    25
+ 1 01185 IR004    20
+ 1 01195 IR004    20
+ 1 01225 IR004    15
+
+*FERTILIZERS (INORGANIC)
+@F FDATE  FMCD  FACD  FDEP  FAMN  FAMP  FAMK  FAMC  FAMO  FOCD FERNAME
+ 1 01115 FE027 AP001     5    50   -99   -99   -99   -99   -99 -99
+ 1 01150 FE005 AP003     0   100     0     0     0     0   -99 -99
+ 2 01115 FE027 AP004     5    26   -99   -99   -99   -99   -99 -99
+ 2 01145 FE005 AP003     0    50     0     0     0     0   -99 -99
+ 2 01165 FE005 AP003     0    50     0     0     0     0   -99 -99
+
+*TILLAGE AND ROTATIONS
+@T TDATE TIMPL  TDEP TNAME
+ 1 01115 TI007   15. -99
+ 1 01115 TI012    3. -99
 
 *SIMULATION CONTROLS
-@N GENERAL     NYERS NREPS START SDATE RSEED SNAME....................
- 1 GE              1     1     S 01001  2150 DEFAULT SIMULATION CONTROL
+@N GENERAL     NYERS NREPS START SDATE RSEED SNAME.................... SMODEL
+ 1 GE              1     1     S 01114  2150 2002 Maize Experiment Ir    -99
 @N OPTIONS     WATER NITRO SYMBI PHOSP POTAS DISES  CHEM  TILL   CO2
- 1 OP              Y     Y     Y     N     N     N     N     Y     M
+ 1 OP              Y     Y     N     N     N     N     N     Y     M
 @N METHODS     WTHER INCON LIGHT EVAPO INFIL PHOTO HYDRO NSWIT MESOM MESEV MESOL
- 1 ME              M     M     E     R     S     L     R     1     G     S     2
+ 1 M               M     S     E     R     S     R     R     1     G     R     2
 @N MANAGEMENT  PLANT IRRIG FERTI RESID HARVS
- 1 MA              R     R     R     R     M
+ 1 MA              R     R     R     N     M
 @N OUTPUTS     FNAME OVVEW SUMRY FROPT GROUT CAOUT WAOUT NIOUT MIOUT DIOUT VBOSE CHOUT OPOUT FMOPT
- 1 OU              N     Y     Y     1     Y     Y     Y     Y     Y     N     Y     N     Y     A
+ 1 OU              N     Y     Y     1     Y     Y     Y     Y     N     N     Y     N     Y     C
 
-*EXP.DETAILS: TEST01MZ Test Maize Run
-
-*GENERAL
-@PEOPLE
-Author
-@ADDRESS
-Address
-@SITE
-Site
-
-*TREATMENTS                        -------------FACTOR LEVELS------------
-@N R O C TNAME.................... CU FL SA IC MP MI MF MR MC MT ME MH SM
- 1 1 0 0 Test Treatment             1  1  0  1  1  0  0  0  0  0  0  0  1
-
-*CULTIVARS
-@C CR INGENO CNAME
- 1 MZ IB0001 Generic Maize
-
-*FIELDS
-@L ID_FIELD WSTA....  FLSA  FLOB  FLDT  FLDD  FLDS  FLST SLTX  SLDP  ID_SOIL
- 1 TEST0001 UFGA       -99   -99   -99   -99   -99   -99 -99    180  IB00000001
-
-*INITIAL CONDITIONS
-@C   PCR ICDAT  ICRT  ICND  ICRN  ICRE  ICWD  ICRES ICREN ICREP ICRIP ICRID ICNAME
- 1    MZ 2001001   -99   -99     1     1   -99   -99   -99   -99   -99   -99 -99
-
-*PLANTING DETAILS
-@P PDATE EDATE  PPOP  PPOE  PLME  PLDS  PLRS  PLRD  PLDP  PLWT  PAGE  PENV  PLPH  SPRL                        PLNAME
- 1 01005   -99   7.0   7.0     S     R    80     0     5   -99   -99   -99   -99   -99                        -99
-
-*SIMULATION CONTROLS
-@N GENERAL     NYERS NREPS START SDATE RSEED SNAME....................
- 1 GE              1     1     S 01001  2150 DEFAULT SIMULATION CONTROL
-@N OPTIONS     WATER NITRO SYMBI PHOSP POTAS DISES  CHEM  TILL   CO2
- 1 OP              Y     Y     Y     N     N     N     N     Y     M
-@N METHODS     WTHER INCON LIGHT EVAPO INFIL PHOTO HYDRO NSWIT MESOM MESEV MESOL
- 1 ME              M     M     E     R     S     L     R     1     G     S     2
-@N MANAGEMENT  PLANT IRRIG FERTI RESID HARVS
- 1 MA              R     R     R     R     M
-@N OUTPUTS     FNAME OVVEW SUMRY FROPT GROUT CAOUT WAOUT NIOUT MIOUT DIOUT VBOSE CHOUT OPOUT FMOPT
- 1 OU              N     Y     Y     1     Y     Y     Y     Y     Y     N     Y     N     Y     A
-
-
+@ AUTOMATIC MANAGEMENT
+@N PLANTING    PFRST PLAST PH2OL PH2OU PH2OD PSTMX PSTMN
+ 1 PL          01114 01008    40   100    30    40    10
+@N IRRIGATION  IMDEP ITHRL ITHRU IROFF IMETH IRAMT IREFF
+ 1 IR             30    50   100 GS000 IR001    10     1
+@N NITROGEN    NMDEP NMTHR NAMNT NCODE NAOFF
+ 1 NI             30    50    25 FE001 GS000
+@N RESIDUES    RIPCN RTIME RIDEP
+ 1 RE            100     1    20
+@N HARVEST     HFRST HLAST HPCNP HPCNR
+ 1 HA              0 01300   100     0
