@@ -234,7 +234,7 @@ C      REAL            PRLF
 
 !     Transfer values from constructed data types into local variables.
       DYNAMIC = CONTROL % DYNAMIC
-!ROP    = CONTROL % CROP
+      CROP    = CONTROL % CROP
       MODEL   = CONTROL % MODEL
       FROP    = CONTROL % FROP
       RUN     = CONTROL % RUN
@@ -261,7 +261,7 @@ C      REAL            PRLF
       IDETS  = ISWITCH % IDETS
 
       AMTRH  = WEATHER % AMTRH
-!O2    = WEATHER % CO2
+      CO2    = WEATHER % CO2
       DAYL   = WEATHER % DAYL
       SRAD   = WEATHER % SRAD
       TMAX   = WEATHER % TMAX
@@ -607,6 +607,7 @@ C----------------------------------------------------------------------
      &    VSTAGE, WSHIDT, WTSD, WTSHE,                    !Input/Output
      &    ASMDOT, DISLA, NPLTD, PPLTD,                    !Output
      &    SDDES, WLIDOT, WRIDOT, WSIDOT,SDWT)             !Output
+        ENDIF
 C----------------------------------------------------------------------
 C----------------------------------------------------------------------
 C
@@ -822,8 +823,7 @@ C----------------------------------------------------------------------
      &      VSTAGE, WTLF, WTNCAN, WTNLF, WTNSD, WTNST, WTNUP, !Output
      &      WTNVEG, XGNP, XHLAI, XLAI, XN, YIELD, CropStatus) !Output
           END SELECT
-        ENDIF
-      ENDIF   
+        ENDIF   
 
       CALL MZ_OPGROW(CONTROL, ISWITCH,  
      &    CANHT, CANWH, DTT, HI, HIP, KSTRES, MDATE, NLAYR, NSTRES, 
