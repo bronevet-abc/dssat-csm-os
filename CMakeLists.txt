@@ -553,6 +553,7 @@ set(
         "Plant/SUBSTOR-Potato/PT_ROOTGR.for"
         "Plant/SUBSTOR-Potato/PT_SUBSTOR.for"
         "Plant/SUBSTOR-Potato/PT_THTIME.for"
+        "Soil/Biochar_mod.f90"
         "Soil/SOIL.for"
         "Soil/CENTURY_OrganicMatter/CENTURY.for"
         "Soil/CENTURY_OrganicMatter/CE_RATIO_C.for"
@@ -661,7 +662,25 @@ foreach(source IN LISTS source_list)
     get_filename_component(source_path "${source}" PATH)
     string(REPLACE "/" "\\" source_path_msvc "${source_path}")
     source_group("${source_path_msvc}" FILES "${source}")
+    source_group("${source_path_msvc}" FILES "${source}")
 endforeach()
+
+# Test Biochar Executable
+add_executable(Test_Biochar 
+    TestRun/Test_Biochar.f90 
+    Soil/Biochar_mod.f90 
+    Utilities/ModuleDefs.for
+    Utilities/CSMVersion.for
+    Utilities/OSDefsLINUX.for 
+    Utilities/DATES.for
+    Utilities/ERROR.for
+    Utilities/Warning.for
+    Utilities/UTILS.for
+    Utilities/READS.for
+    Utilities/Info.for
+    InputModule/OPHEAD.for
+)
+target_include_directories(Test_Biochar PRIVATE "${CMAKE_BINARY_DIR}/mod")
 
 
 install(TARGETS ${EXECUTABLE_NAME} DESTINATION
