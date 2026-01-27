@@ -47,8 +47,10 @@ C=====================================================================
       USE ModuleDefs
       USE FloodModule
       USE GHG_mod
+      USE Biochar_mod, ONLY: Biochar_Init, Biochar_Daily
       IMPLICIT NONE
       EXTERNAL SOILDYN, WATBAL, CENTURY, SoilOrg, SoilNi, SoilPi, SoilKi
+
       SAVE
 !-----------------------------------------------------------------------
 !     Interface variables:
@@ -128,6 +130,10 @@ C=====================================================================
      &    KTRANS, MULCH, SomLit, SomLitC, SW, TILLVALS,   !Input
      &    WEATHER, XHLAI,                                 !Input
      &    SOILPROP)                                       !Output
+         
+        IF (DYNAMIC == RUNINIT .OR. DYNAMIC == SEASINIT) THEN
+           CALL Biochar_Init(CONTROL)
+        ENDIF
 !      ENDIF
 
 !     Call WATBAL first for all except seasonal initialization
@@ -179,6 +185,9 @@ C=====================================================================
       CALL SoilKi(CONTROL, ISWITCH, 
      &    FERTDATA, KUptake, SOILPROP, TILLVALS,          !Input
      &    SKi_Avail)                                      !Output
+
+      ! Biochar Simulation
+      CALL Biochar_Daily(CONTROL, SOILPROP)
 
       IF (DYNAMIC == SEASINIT) THEN
 !       Soil water balance -- call last for initialization
