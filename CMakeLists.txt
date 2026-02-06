@@ -579,6 +579,7 @@ set(
         "Soil/CERES_OrganicMatter/OpSoilOrg.for"
         "Soil/CERES_OrganicMatter/SoilOrg.for"
         "Soil/CERES_OrganicMatter/SoilOrg_init.for"
+        "Soil/Biochar/Biochar_mod.f90"
         "Soil/FloodN/FCHEM.for"
         "Soil/FloodN/FLOODI.for"
         "Soil/FloodN/Flood_Chem.for"

@@ -60,7 +60,8 @@
      &    NH4, NO3, OMAData, RLV,                         !Input
      &    SENESCE, SOILPROP, SPi_Labile, ST, SW, TILLVALS,!Input
      &    CH4_data, IMM, LITC, MNR, MULCH, newCO2, SomLit,!Output
-     &    SomLitC, SomLitE, SSOMC)                        !Output
+     &    SomLitC, SomLitE, SSOMC,                        !Output
+     &    PRIME_RATE, PRIME_EFF, PRIME_BIOM)              !Optional Input
 
 !-----------------------------------------------------------------------
       USE ModuleDefs 
@@ -146,6 +147,12 @@
 !    &    CumCH4Leaching, CumCO2Emission
       REAL RLV(NL), DRAIN
       TYPE (CH4_type) CH4_data
+      
+      REAL, DIMENSION(NL), INTENT(IN), OPTIONAL :: PRIME_RATE
+      REAL, DIMENSION(NL), INTENT(IN), OPTIONAL :: PRIME_EFF
+      REAL, DIMENSION(NL), INTENT(IN), OPTIONAL :: PRIME_BIOM
+      
+      REAL :: P_RATE_L, P_EFF_L
 
       REAL, PARAMETER :: FOMCFrac = 0.4
       REAL, PARAMETER :: HumusCFrac = 0.526 !(=1/1.9)
@@ -573,6 +580,12 @@
           ELSE
             DECFACT = TFSOM * WFSOM * CNRF
           ENDIF
+          
+!         Biochar Priming on Rate
+          P_RATE_L = 1.0
+          IF (PRESENT(PRIME_RATE)) P_RATE_L = PRIME_RATE(L)
+          DECFACT = DECFACT * P_RATE_L
+
 
 !         FOM fraction that decomposes, summed across the three pools.
           FOMFRAC = DECFACT * (FPOOL(L,1) * RDCHO 
@@ -631,7 +644,19 @@ C         recruit (NREQ-N CONC) g of N
 
 !           80% of FOM decomposition goes to CO2 (the remainder to HUM pool)
 !           Convert FOM to C units with 0.4 multiplier
-            newCO2_FOM(L) = 0.8 * FOMCFrac * DLTFOM
+            
+!           Biochar Priming on Efficiency
+            P_EFF_L = 1.0
+            IF (PRESENT(PRIME_EFF)) P_EFF_L = PRIME_EFF(L)
+            
+!           Standard Efficiency = 0.2 (20% to Humus)
+!           New Efficiency = 0.2 * P_EFF_L
+!           CO2 Fraction = 1.0 - (0.2 * P_EFF_L)
+!           Standard CO2 Fraction = 0.8. 
+!           Wait, 0.8 is strictly 1-0.2? Yes.
+!           So we replace 0.8 with (1.0 - 0.2 * P_EFF_L)
+            
+            newCO2_FOM(L) = (1.0 - 0.2 * P_EFF_L) * FOMCFrac * DLTFOM
 
 !           Amount of OM associated with immobilized N
             Immob_OM = IMMOBN * HumusCNRatio / HumusCFrac
@@ -678,7 +703,8 @@ C         recruit (NREQ-N CONC) g of N
 
 !       chp 2019-03-07 Add 20% of C, regardless of N movement. Let C decomposition
 !         drive the mass transfer.
-        DLTHUMC(L) = DLTHUMC(L) + 0.2 * FOMCFrac * DLTFOM
+!       Applied P_EFF_L to the 0.2 fraction
+        DLTHUMC(L) = DLTHUMC(L) + 0.2 * P_EFF_L * FOMCFrac * DLTFOM
 
         IF (N_ELEMS > 0) THEN
 !          DLTHUMC(L) = DLTHUMC(L) + 0.2 * FOMFRAC * FON(L) * 10.0

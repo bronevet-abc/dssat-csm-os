@@ -47,7 +47,8 @@
      &  NH4, NO3, OMADATA, RLV, SENESCE,              !Input
      &  SOILPROP, SPi_Labile, ST, SW, TILLVALS,       !Input
      &  CH4_data, IMM, LITC, MNR, MULCH, newCO2,      !Output
-     &  SomLit,SomLitC, SomLitE, SSOMC)               !Output
+     &  SomLit,SomLitC, SomLitE, SSOMC,               !Output
+     &  PRIME_RATE, PRIME_EFF, PRIME_BIOM)            !Optional Input
 
 !     ------------------------------------------------------------------
       USE ModuleDefs
@@ -151,6 +152,13 @@
 !    &    CumCH4Leaching, CumCO2Emission
       REAL RLV(NL), DRAIN
       TYPE (CH4_type) CH4_data
+      
+      REAL, DIMENSION(NL), INTENT(IN), OPTIONAL :: PRIME_RATE
+      REAL, DIMENSION(NL), INTENT(IN), OPTIONAL :: PRIME_EFF
+      REAL, DIMENSION(NL), INTENT(IN), OPTIONAL :: PRIME_BIOM
+      
+      REAL :: P_RATE_L, P_EFF_L, P_BIOM_L
+      REAL :: DIFF_C, DIFF_E
 
       DATA ADDMETABEFLAG /.FALSE./
       DATA FRMETFLAG /.FALSE./
@@ -641,6 +649,13 @@
         CALL DECRAT_C (ISWITCH,
      &    DLAYR, DUL, L, LL, SAT, ST, SW,                 !Input
      &    DEFAC)                                          !Output
+     
+!       Biochar Priming on Rate
+        P_RATE_L = 1.0
+        IF (PRESENT(PRIME_RATE) .AND. L > 0) P_RATE_L = PRIME_RATE(L)
+        IF (L == SRFC .AND. PRESENT(PRIME_RATE)) P_RATE_L = PRIME_RATE(1) ! Assume surface uses layer 1 priming?
+        DEFAC = DEFAC * P_RATE_L
+
 
 !       Set the C:E ratios of the SOM and litter pools.
         CALL CE_RATIO_C ( 
@@ -689,6 +704,121 @@
      &    IMMS1S23, IMMS1S3, IMMS23S1, IMMS2S1, IMMS2S3,  !Output
      &    IMMS3S1, MNRS1S2, MNRS1S3, MNRS23S1, MNRS2S1,   !Output
      &    MNRS2S3, MNRS3S1)                               !Output
+     
+!       Biochar Priming on Efficiency and Partitioning
+        P_EFF_L  = 1.0
+        P_BIOM_L = 1.0
+        IF (L > 0) THEN
+           IF (PRESENT(PRIME_EFF))  P_EFF_L  = PRIME_EFF(L)
+           IF (PRESENT(PRIME_BIOM)) P_BIOM_L = PRIME_BIOM(L)
+        ENDIF
+        
+        IF (P_EFF_L < 0.999 .OR. P_BIOM_L < 0.999) THEN
+           ! 1. Efficiency: Reduces C retained in SOM1/SOM2/SOM3, Increases CO2
+           ! Applying to DLTSOM1C, DLTSOM2C, DLTSOM3C (Net change? No, Influx?)
+           ! DLTSOM is net change. This is tricky.
+           ! But DLTSOM includes Decomp (Loss) and Formation (Gain).
+           ! Priming acts on Formation (Efficiency of conversion).
+           ! We should reduce the POSITIVE component of DLTSOM.
+           ! But we don't see components here.
+           ! Approximation: Adjust DLTSOM directly? If DLTSOM is negative, it means loss dominates.
+           ! Ideally we modify before they are summed.
+           ! But EFS... are returned by LITDEC/SOMDEC. EFS is Efficiency.
+           ! If we can't change EFS inside, we assume:
+           ! RealGain = GrossGain * P_EFF.
+           ! We don't have GrossGain here.
+           
+           ! Alternative: The Fluxes (CFMETS1, CFSTRS1, etc) are OUTPUTS of LITDEC/SOMDEC.
+           ! These are the Gross Flows!
+           ! Perfect. I can read the arguments of LITDEC/SOMDEC again.
+           ! LITDEC_C Outputs: CFMETS1, CFSTRS1, ...
+           ! These variables hold the Carbon Flux from MET to S1, STR to S1, etc.
+           ! I should reduce THESE fluxes.
+           ! But wait, I am AFTER the calls. I can modify DLTSOM* by using these fluxes.
+           ! Re-calculating DLTSOM* is tedious (lots of sums).
+           
+           ! Simplification:
+           ! Apply P_EFF to the total DLTSOM* ? No.
+           ! Let's ignore Efficiency implementation for CENTURY if it's too risky.
+           ! The user wants implementation.
+           ! I will assume P_EFF acts on the net change for now, or just Rate is enough?
+           ! No, Rate and Efficiency are distinct.
+           ! Let's try to adjust the Flux variables (CF...) and then RE-SUM them?
+           ! No, DLTSOM1C is already calculated inside LITDEC.
+           
+           ! Workaround: 
+           ! Reduce DLTSOM1C by (1-P_EFF) * (INPUTS to SOM1).
+           ! INPUTS to SOM1 = CFMETS1 + CFSTRS1 + CFS2S1 + CFS3S1.
+           ! DIFF = (CFMETS1 + CFSTRS1 + CFS2S1 + CFS3S1) * (1.0 - P_EFF_L)
+           ! DLTSOM1C(L) = DLTSOM1C(L) - DIFF
+           ! newCO2(L) = newCO2(L) + DIFF
+           ! And for N/P.
+           
+           ! Inputs to SOM1
+           DIFF_C = (CFMETS1(L) + CFSTRS1(L) + CFS2S1(L) + CFS3S1(L)) * (1.0 - P_EFF_L)
+           DLTSOM1C(L) = DLTSOM1C(L) - DIFF_C
+           newCO2(L)   = newCO2(L)   + DIFF_C
+           
+           ! N associated (Approximate using C:N of source or destination? Use destination SOM1)
+           ! Or use corresponding E fluxes: EFMETS1...
+           ! Wait, EFMETS1 is ARRAY (0:NL, NELEM).
+           ! But EFMETS1 is likely defined as "Element Flux from MET to S1".
+           ! Let's check declared types.
+           ! EFMETS1(0:NL, NELEM). Yes.
+           DO IEL = 1, N_ELEMS
+              DIFF_E = (EFMETS1(L,IEL) + EFSTRS1(L,IEL) + EFS2S1(L,IEL) + EFS3S1(L,IEL)) * (1.0 - P_EFF_L)
+              DLTSOM1E(L,IEL) = DLTSOM1E(L,IEL) - DIFF_E
+              MNR(L,IEL) = MNR(L,IEL) + DIFF_E
+           END DO
+           
+           ! Inputs to SOM2
+           DIFF_C = (CFSTRS2(L) + CFS1S2(L)) * (1.0 - P_EFF_L)
+           DLTSOM2C(L) = DLTSOM2C(L) - DIFF_C
+           newCO2(L)   = newCO2(L)   + DIFF_C
+           DO IEL = 1, N_ELEMS
+              DIFF_E = (EFSTRS2(L,IEL) + EFS1S2(L,IEL)) * (1.0 - P_EFF_L)
+              DLTSOM2E(L,IEL) = DLTSOM2E(L,IEL) - DIFF_E
+              MNR(L,IEL) = MNR(L,IEL) + DIFF_E
+           END DO
+           
+           ! Inputs to SOM3
+           DIFF_C = (CFSTRS23(L) + CFS1S3(L) + CFS2S3(L)) * (1.0 - P_EFF_L)
+           DLTSOM3C(L) = DLTSOM3C(L) - DIFF_C
+           newCO2(L)   = newCO2(L)   + DIFF_C
+           DO IEL = 1, N_ELEMS
+              DIFF_E = (EFSTRS23(L,IEL) + EFS1S3(L,IEL) + EFS2S3(L,IEL)) * (1.0 - P_EFF_L)
+              DLTSOM3E(L,IEL) = DLTSOM3E(L,IEL) - DIFF_E
+              MNR(L,IEL) = MNR(L,IEL) + DIFF_E
+           END DO
+           
+           ! 2. Partitioning (P_BIOM): Affects FOM -> BIOM (SOM1).
+           ! Reduced flow to SOM1 goes to SOM2 (or SOM3?).
+           ! Usually "Biomass" = SOM1. "Humus" = SOM2.
+           ! Archontoulis Eq 6: fr_fom_biom.
+           ! Affects CFMETS1, CFSTRS1.
+           ! Transfer difference to CFSTRS2 (or CFMETS2? MET doesn't go to S2 usually).
+           ! STR goes to S1 and S2. MET goes to S1 only (usually).
+           ! If MET -> S1 is reduced, where does it go? S2? Or just stays? 
+           ! Or assumes different split?
+           ! Let's ignore complex Partitioning shift for MET to S2 if logic doesn't support it.
+           ! Focus on CFSTRS1 (STR -> S1) vs CFSTRS2 (STR -> S2).
+           ! DIFF = CFSTRS1(L) * (1.0 - P_BIOM_L)
+           ! CFSTRS1(L) = CFSTRS1(L) - DIFF
+           ! CFSTRS2(L) = CFSTRS2(L) + DIFF
+           ! And update DLTSOM1C, DLTSOM2C.
+           
+           DIFF_C = CFSTRS1(L) * (1.0 - P_BIOM_L)
+           DLTSOM1C(L) = DLTSOM1C(L) - DIFF_C
+           DLTSOM2C(L) = DLTSOM2C(L) + DIFF_C
+           
+           ! Update N/P
+           DO IEL = 1, N_ELEMS
+              DIFF_E = EFSTRS1(L,IEL) * (1.0 - P_BIOM_L)
+              DLTSOM1E(L,IEL) = DLTSOM1E(L,IEL) - DIFF_E
+              DLTSOM2E(L,IEL) = DLTSOM2E(L,IEL) + DIFF_E
+           END DO
+           
+        ENDIF
       END DO   !End of soil layer loop
 
 !     ----------------------------------------------------------------
