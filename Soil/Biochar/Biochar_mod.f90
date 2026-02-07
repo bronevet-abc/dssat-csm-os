@@ -22,6 +22,8 @@
         REAL    :: CN_BC         ! C:N Ratio of Biochar
         REAL    :: CEC_INIT      ! Initial CEC (cmol/kg biochar)
         REAL    :: BCLV          ! Biochar Liming Value (cmol/kg biochar)
+        REAL    :: Kads          ! Langmuir Adsorption Coeff (L/mg)
+        REAL    :: Kdes          ! Langmuir Desorption Coeff (L/mg)
       END TYPE BiocharAppType
 
 !     Max number of applications
@@ -50,6 +52,10 @@
       REAL :: LpH     = 3.5
       REAL :: P1_pH   = 10.0
       
+      ! NH4 Adsorption Parameters
+      REAL :: Kads_Default = 0.006
+      REAL :: Kdes_Default = 0.006
+      
 !     Priming Parameters (Archontoulis et al., 2015)
       REAL :: P_FOM = 0.0   ! Positive priming on FOM decomposition rate
       REAL :: P_E   = 0.0   ! Negative priming on Carbon Efficiency
@@ -58,6 +64,7 @@
 !     State Variables
       REAL, DIMENSION(NL) :: BC_Labile   ! Labile Biochar C (kg/ha)
       REAL, DIMENSION(NL) :: BC_Recalc   ! Recalcitrant Biochar C (kg/ha)
+      REAL, DIMENSION(NL) :: BC_NH4_Ads  ! Adsorbed NH4 (kg N/ha)
       
 !     Flux Variables (Daily)
       REAL :: Daily_CO2_Gross   ! Total daily CO2 emission from Biochar (kg C/ha/d)
@@ -82,6 +89,7 @@
         ! Initialize State
         BC_Labile = 0.0
         BC_Recalc = 0.0
+        BC_NH4_Ads = 0.0
         NumApps = 0
         CNRF_BC = 0.693
         Opt_bc  = 25.0
@@ -119,18 +127,19 @@
               NumApps = NumApps + 1
               IF (NumApps > MaxApp) EXIT
               
-              READ(LINE, *, IOSTAT=ERRNUM) &
-                BC_Apps(NumApps)%AppDate, &
-                BC_Apps(NumApps)%Amount, &
-                BC_Apps(NumApps)%Depth, &
-                BC_Apps(NumApps)%FLoss, &
-                BC_Apps(NumApps)%FCarbon, &
-                BC_Apps(NumApps)%FLabile, &
-                BC_Apps(NumApps)%MRT_Labile, &
-                BC_Apps(NumApps)%MRT_Recalc, &
-                BC_Apps(NumApps)%CN_BC, &
-                BC_Apps(NumApps)%CEC_INIT, &
-                BC_Apps(NumApps)%BCLV
+              READ(LINE, *, IOSTAT=ERRNUM) BC_Apps(NumApps)%AppDate, &
+                  BC_Apps(NumApps)%Amount, BC_Apps(NumApps)%Depth, &
+                  BC_Apps(NumApps)%FLoss, BC_Apps(NumApps)%FCarbon, &
+                  BC_Apps(NumApps)%FLabile, BC_Apps(NumApps)%MRT_Labile,&
+                  BC_Apps(NumApps)%MRT_Recalc, BC_Apps(NumApps)%CN_BC, &
+                  BC_Apps(NumApps)%CEC_INIT, BC_Apps(NumApps)%BCLV, &
+                  BC_Apps(NumApps)%Kads, BC_Apps(NumApps)%Kdes
+
+             ! Default Kads/Kdes if missing (check for zero/negative or read error implication)
+             ! Simple check if they are exactly 0.0 from read (if omitted usually 0)
+             IF (BC_Apps(NumApps)%Kads < 1.E-9) BC_Apps(NumApps)%Kads = Kads_Default
+             IF (BC_Apps(NumApps)%Kdes < 1.E-9) BC_Apps(NumApps)%Kdes = Kdes_Default
+
             END DO
             CLOSE(LUN)
           END IF
@@ -176,8 +185,14 @@
         REAL :: MassApplied, MassInLayer, CEC_t
         INTEGER :: TimeSinceApp, TIMDIF, L2
         REAL :: Age
-        
+        ! pH Local Vars
         REAL :: SoilpH, SoilCECBC_Val, Term1, Term2, dpH, AppBCLV
+        
+        ! NH4 Adsorption Local Vars
+        REAL :: NH4_Conc_mgL, NH4_Ads_Target_mgL, NH4_Ads_Target_kgHa
+        REAL :: VolSW_L_Ha, CEC_Ratio
+        REAL :: AppKads, AppKdes, Ads_Diff
+        REAL :: SoilCEC_Val
         
         REAL, DIMENSION(NL) :: NativeCEC ! To store initial soil CEC
 
@@ -430,7 +445,87 @@
            END DO
         END IF
 
-        ! 4. Output
+         ! 4. Update NH4 Adsorption (Eq 13)
+         ! Occurs daily based on current NH4, CEC and Biochar Status
+         DO L = 1, SOILPROP%NLAYR
+            IF (BC_Labile(L) + BC_Recalc(L) > 1.E-6) THEN
+               ! Calculate Volumetric Soil Water (L/ha)
+               ! SW(in cm3/cm3) * DLAYR(cm) * 10 = mm
+               ! mm * 10,000 = L/ha
+               ! Or simply: SW * DLAYR * 10 * 10,000 / 1 = L/ha?
+               ! 1 mm ha = 10,000 L.
+               ! Water (mm) = SW(L) * SOILPROP%DLAYR(L) * 10.0
+               VolSW_L_Ha = SW(L) * SOILPROP%DLAYR(L) * 10.0 * 10000.0
+               
+               IF (VolSW_L_Ha > 1.0) THEN
+                  ! NH4 Conc (mg/L) = (kg/ha * 10^6 mg/kg) / (L/ha)
+                  NH4_Conc_mgL = (NH4(L) * 1.0E6) / VolSW_L_Ha
+                  
+                  ! Using First App params for Kads/Kdes if multiple?
+                  ! Ideal: Weighted Kads. For now use Apps(1) or Max?
+                  ! Logic: Use parameters from the first biochar application for simplicity
+                  ! assuming consistent biochar type.
+                  AppKads = BC_Apps(1)%Kads
+                  AppKdes = BC_Apps(1)%Kdes
+                  
+                  ! Current CECs
+                  SoilCEC_Val   = SOILPROP%CEC(L) ! This is now Updated CEC (Soil + BC)
+                  ! Wait, Eq 13 uses ratio (SoilCECBC / SoilCEC_Original?)
+                  ! Paper: "ratio of CECbc / CECsoil" ??
+                  ! Text: "Kads * (SoilCECBC/SoilCEC)"
+                  ! "SoilCECBC and SoilCEC is the soil CEC before and after biochar application"
+                  ! Wait: "SoilCECBC is CEC after... SoilCEC is before".
+                  ! In our code, SOILPROP%CEC is updated daily to be the "After" value (SoilCECBC).
+                  ! NativeCEC is the "Before" value.
+                  
+                  IF (NativeCEC(L) > 1.E-6) THEN
+                     CEC_Ratio = SOILPROP%CEC(L) / NativeCEC(L)
+                     
+                     ! Eq 13: NH4ads (mg L-1)
+                     ! Target = Conc * (K * Ratio) / (1 + K * Ratio)
+                     
+                     ! Check Adsorption vs Desorption direction
+                     ! First calculate potential with Kads
+                     Term1 = AppKads * CEC_Ratio
+                     NH4_Ads_Target_mgL = NH4_Conc_mgL * Term1 / (1.0 + Term1)
+                     
+                     ! Convert Target from mg/L to kg/ha
+                     NH4_Ads_Target_kgHa = (NH4_Ads_Target_mgL * VolSW_L_Ha) / 1.0E6
+                     
+                     Ads_Diff = NH4_Ads_Target_kgHa - BC_NH4_Ads(L)
+                     
+                     IF (Ads_Diff > 0.0) THEN
+                        ! Adsorption (Immobilization)
+                        ! Limit to available NH4?
+                        Ads_Diff = MIN(Ads_Diff, NH4(L))
+                        IMM(L, 1) = IMM(L, 1) + Ads_Diff
+                        BC_NH4_Ads(L) = BC_NH4_Ads(L) + Ads_Diff
+                        
+                     ELSEIF (Ads_Diff < 0.0) THEN
+                         ! Potential Desorption
+                         ! Re-calculate Target with Kdes
+                         Term1 = AppKdes * CEC_Ratio
+                         NH4_Ads_Target_mgL = NH4_Conc_mgL * Term1 / (1.0 + Term1)
+                         NH4_Ads_Target_kgHa = (NH4_Ads_Target_mgL * VolSW_L_Ha) / 1.0E6
+                         
+                         ! New Diff
+                         Ads_Diff = NH4_Ads_Target_kgHa - BC_NH4_Ads(L)
+                         
+                         IF (Ads_Diff < 0.0) THEN
+                            ! Desorption (Mineralization)
+                            ! Limit to available Adsorbed amount
+                             Ads_Diff = MAX(Ads_Diff, -BC_NH4_Ads(L))
+                             MNR(L, 1) = MNR(L, 1) + ABS(Ads_Diff)
+                             BC_NH4_Ads(L) = BC_NH4_Ads(L) + Ads_Diff
+                         END IF
+                     END IF
+                  END IF
+               END IF
+            END IF
+         END DO
+
+         ! 5. Output
+
         TotalLabile = SUM(BC_Labile)
         TotalRecalc = SUM(BC_Recalc)
         

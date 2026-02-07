@@ -4,7 +4,7 @@
        0.693   25.0    51.0    0.0   0.0   100.0   0.001
 
 ! Applications
-! AppDate Amount Depth FLoss FCarbon FLabile MRT1 MRT2 CN_BC CEC_INIT BCLV
-! YrDoy   kg/ha  cm    0-1   0-1     0-1     yrs  yrs  g/g
+! AppDate Amount Depth FLoss FCarbon FLabile MRT1 MRT2 CN_BC CEC_INIT BCLV Kads  Kdes
+! YrDoy   kg/ha  cm    0-1   0-1     0-1     yrs  yrs  g/g   cmol/kg  cmol/kg L/mg  L/mg
 ! Example: Application on 2008-05-15 (2008136)
-! 2008136  2000.  20.   0.02  0.70    0.20    3.0  200. 100.
+  2008136  2000.  20.   0.02  0.70    0.20    3.0  200. 100.  50.0     50.0   0.006 0.006
