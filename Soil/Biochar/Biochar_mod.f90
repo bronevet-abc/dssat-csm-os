@@ -21,6 +21,7 @@
         REAL    :: MRT_Recalc    ! Mean Residence Time Recalcitrant (years)
         REAL    :: CN_BC         ! C:N Ratio of Biochar
         REAL    :: CEC_INIT      ! Initial CEC (cmol/kg biochar)
+        REAL    :: BCLV          ! Biochar Liming Value (cmol/kg biochar)
       END TYPE BiocharAppType
 
 !     Max number of applications
@@ -42,6 +43,12 @@
       ! CEC Parameters
       REAL :: CEC_MAX = 100.0 ! Maximum CEC after aging (cmol/kg)
       REAL :: K_CEC   = 0.001 ! CEC aging rate constant (1/day)
+      
+      ! pH Parameters
+      REAL :: BCLV_Default = 50.0 ! Default Liming Value if not specified
+      REAL :: UpH     = 8.3
+      REAL :: LpH     = 3.5
+      REAL :: P1_pH   = 10.0
       
 !     Priming Parameters (Archontoulis et al., 2015)
       REAL :: P_FOM = 0.0   ! Positive priming on FOM decomposition rate
@@ -122,7 +129,8 @@
                 BC_Apps(NumApps)%MRT_Labile, &
                 BC_Apps(NumApps)%MRT_Recalc, &
                 BC_Apps(NumApps)%CN_BC, &
-                BC_Apps(NumApps)%CEC_INIT
+                BC_Apps(NumApps)%CEC_INIT, &
+                BC_Apps(NumApps)%BCLV
             END DO
             CLOSE(LUN)
           END IF
@@ -169,6 +177,8 @@
         INTEGER :: TimeSinceApp, TIMDIF, L2
         REAL :: Age
         
+        REAL :: SoilpH, SoilCECBC_Val, Term1, Term2, dpH, AppBCLV
+        
         REAL, DIMENSION(NL) :: NativeCEC ! To store initial soil CEC
 
         Ln2 = LOG(2.0)
@@ -197,6 +207,56 @@
                              BC_Apps(iApp)%FCarbon * (1.0 - BC_Apps(iApp)%FLabile)
 
              CALL DistributeBiochar(AppliedLabile, AppliedRecalc, BC_Apps(iApp)%Depth, SOILPROP)
+             
+             ! Biochar effects on Soil pH (Eq 12) - Apply ONLY on application day
+             ! Calculate incremental effect of THIS application
+             AppBCLV = BC_Apps(iApp)%BCLV
+             IF (AppBCLV < 1.E-6) AppBCLV = BCLV_Default
+             
+             AppDepth = BC_Apps(iApp)%Depth
+             
+             DO L = 1, SOILPROP%NLAYR
+                ! Calculate Fraction of this App in this Layer
+                LayerTop = 0.0
+                DO L2 = 1, L-1
+                   LayerTop = LayerTop + SOILPROP%DLAYR(L2)
+                END DO
+                LayerBottom = LayerTop + SOILPROP%DLAYR(L)
+                
+                IF (LayerTop < AppDepth) THEN
+                   DistDepth = MIN(LayerBottom, AppDepth) - LayerTop
+                   IF (DistDepth > 0) THEN
+                      Fraction = DistDepth / AppDepth
+                      
+                      ! Mass of THIS application in this layer (kg/ha)
+                      ! used for Massfr in Eq 12
+                      MassApplied = BC_Apps(iApp)%Amount
+                      MassInLayer = MassApplied * Fraction
+                      
+                      ! Soil Mass (kg/ha)
+                      SoilMass = SOILPROP%BD(L) * SOILPROP%DLAYR(L) * 100000.0
+                      
+                      ! Mass Fraction (g/g) = BC Mass / Soil Mass
+                      ! MassInLayer (kg/ha) / SoilMass (kg/ha) -> g/g
+                      IF (SoilMass > 0.0) THEN
+                          Fraction = MassInLayer / SoilMass
+                          
+                          SoilpH = SOILPROP%PH(L)
+                          SoilCECBC_Val = SOILPROP%CEC(L)
+                          
+                          IF (SoilCECBC_Val > 1.E-4 .AND. (UpH - LpH) > 1.E-4) THEN
+                             Term1 = (Fraction * AppBCLV) / SoilCECBC_Val
+                             
+                             IF (SoilpH > LpH .AND. SoilpH < UpH) THEN
+                                Term2 = ((UpH - SoilpH) * (SoilpH - LpH)) / (UpH - LpH)
+                                dpH = P1_pH * Term1 * Term2
+                                SOILPROP%PH(L) = SoilpH + dpH
+                             END IF
+                          END IF
+                      END IF
+                   END IF
+                END IF
+             END DO
           END IF
         END DO
 
@@ -307,6 +367,9 @@
               WeightedCEC_BC = 0.0
               
               IF (BC_Labile(L) + BC_Recalc(L) > 1.E-6) THEN
+                 ! Iterate over all the applications, determine their current CEC
+                 ! based on the amount of aging that has occurred since application
+                 ! and add to the total CEC for this layer.
                  DO iApp = 1, NumApps
                     AppDepth = BC_Apps(iApp)%Depth
                     
@@ -360,6 +423,8 @@
                     ! Eq 11: Mixing (Mass Weighted)
                     ! SOILPROP%CEC = (NativeCEC * SoilMass + BC_CEC * BC_Mass) / (SoilMass + BC_Mass)
                     SOILPROP%CEC(L) = (NativeCEC(L) * SoilMass + TotalCEC_BC) / (SoilMass + CurrentMass_BC)
+                    
+
                  END IF
               END IF
            END DO
