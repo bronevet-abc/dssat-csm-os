@@ -20,6 +20,7 @@
         REAL    :: MRT_Labile    ! Mean Residence Time Labile (years)
         REAL    :: MRT_Recalc    ! Mean Residence Time Recalcitrant (years)
         REAL    :: CN_BC         ! C:N Ratio of Biochar
+        REAL    :: CEC_INIT      ! Initial CEC (cmol/kg biochar)
       END TYPE BiocharAppType
 
 !     Max number of applications
@@ -37,6 +38,10 @@
 
       REAL :: CN_BIOM = 8.0
       REAL :: CN_HUM  = 11.0
+      
+      ! CEC Parameters
+      REAL :: CEC_MAX = 100.0 ! Maximum CEC after aging (cmol/kg)
+      REAL :: K_CEC   = 0.001 ! CEC aging rate constant (1/day)
       
 !     Priming Parameters (Archontoulis et al., 2015)
       REAL :: P_FOM = 0.0   ! Positive priming on FOM decomposition rate
@@ -56,6 +61,7 @@
 !     Output file unit
       INTEGER :: LUN_BC
       LOGICAL :: FirstOutput = .TRUE.
+      LOGICAL :: FirstRun = .TRUE.
 
       CONTAINS
 
@@ -98,7 +104,7 @@
               
               IF (LINE(1:6) == '@PARAM') THEN
                  READ(LINE(7:), *, IOSTAT=ERRNUM) CNRF_BC, Opt_bc, &
-                      P_FOM, P_E, P_F
+                      P_FOM, P_E, P_F, CEC_MAX, K_CEC
                  CYCLE
               END IF
               
@@ -115,7 +121,8 @@
                 BC_Apps(NumApps)%FLabile, &
                 BC_Apps(NumApps)%MRT_Labile, &
                 BC_Apps(NumApps)%MRT_Recalc, &
-                BC_Apps(NumApps)%CN_BC
+                BC_Apps(NumApps)%CN_BC, &
+                BC_Apps(NumApps)%CEC_INIT
             END DO
             CLOSE(LUN)
           END IF
@@ -128,13 +135,14 @@
         WRITE(LUN_BC, '(A)') '@YEAR DOY   DAS   BC_Labile   BC_Recalc' // &
                              '      dlt_CO2     dlt_Biom    dlt_Hum     dlt_N_Net       TF     WF     NF'
         
+        FirstRun = .TRUE.
       END SUBROUTINE Biochar_Init
 
 !=======================================================================
       SUBROUTINE Biochar_Daily(CONTROL, SOILPROP, SW, ST, NH4, NO3, &
                                IMM, MNR)
         TYPE(ControlType), INTENT(IN) :: CONTROL
-        TYPE(SoilType),    INTENT(IN) :: SOILPROP
+        TYPE(SoilType),    INTENT(INOUT) :: SOILPROP
         REAL, DIMENSION(NL), INTENT(IN) :: SW, ST, NH4, NO3
         REAL, DIMENSION(0:NL, NELEM), INTENT(INOUT) :: IMM, MNR
         
@@ -149,7 +157,19 @@
         REAL :: Ln2
         ! N-Balance variables
         REAL :: dlt_nbc_need, dlt_nbc_released, dlt_nbc
+
         REAL :: CN_BC_App
+        
+        ! CEC Local Vars
+        REAL :: SoilMass, CurrentCEC_Soil, TotalCEC_Soil
+        REAL :: TotalCEC_BC, TotalMass_BC, TotalMass_BC_InLayer
+        REAL :: WeightedCEC_BC, AvgCEC_BC, CurrentMass_BC
+        REAL :: AppDepth, LayerTop, LayerBottom, Fraction, DistDepth
+        REAL :: MassApplied, MassInLayer, CEC_t
+        INTEGER :: TimeSinceApp, TIMDIF, L2
+        REAL :: Age
+        
+        REAL, DIMENSION(NL) :: NativeCEC ! To store initial soil CEC
 
         Ln2 = LOG(2.0)
         Daily_CO2_Gross = 0.0
@@ -160,6 +180,12 @@
         YRDOY = CONTROL % YRDOY
         DAS   = CONTROL % DAS
         CALL YR_DOY(YRDOY, YEAR, DOY)
+        
+        ! Initialize NativeCEC on first run
+        IF (FirstRun) THEN
+           NativeCEC = SOILPROP%CEC
+           FirstRun = .FALSE.
+        END IF
 
         ! 1. Check for Applications
         DO iApp = 1, NumApps
@@ -268,7 +294,78 @@
            END IF
         END DO
 
-        ! 3. Output
+
+        
+        ! 3. Update Soil CEC (Eq 10 & 11)
+        IF (NumApps > 0) THEN
+           DO L = 1, SOILPROP%NLAYR
+              ! Soil Mass (kg/ha)
+              SoilMass = SOILPROP%BD(L) * SOILPROP%DLAYR(L) * 100000.0
+              
+              TotalCEC_BC = 0.0
+              TotalMass_BC_InLayer = 0.0
+              WeightedCEC_BC = 0.0
+              
+              IF (BC_Labile(L) + BC_Recalc(L) > 1.E-6) THEN
+                 DO iApp = 1, NumApps
+                    AppDepth = BC_Apps(iApp)%Depth
+                    
+                    ! Calculate Fraction of this App in this Layer
+                    LayerTop = 0.0
+                    DO L2 = 1, L-1
+                       LayerTop = LayerTop + SOILPROP%DLAYR(L2)
+                    END DO
+                    LayerBottom = LayerTop + SOILPROP%DLAYR(L)
+                    
+                    IF (LayerTop < AppDepth) THEN
+                       DistDepth = MIN(LayerBottom, AppDepth) - LayerTop
+                       IF (DistDepth > 0) THEN
+                          Fraction = DistDepth / AppDepth
+                          
+                          ! Mass Applied to this layer (Initial)
+                          MassApplied = BC_Apps(iApp)%Amount
+                          MassInLayer = MassApplied * Fraction
+                          
+                          ! Time Since Application
+                          ! TIMDIF returns Diff in Days. AppDate is YRDOY.
+                          TimeSinceApp = TIMDIF(BC_Apps(iApp)%AppDate, YRDOY)
+                          
+                          IF (TimeSinceApp >= 0) THEN
+                              ! Eq 10: Aging
+                              ! CEC_t = CEC_min + (CEC_max - CEC_min) * (1 - exp(-k * t))
+                              Age = REAL(TimeSinceApp)
+                              CEC_t = BC_Apps(iApp)%CEC_INIT + &
+                                      (CEC_MAX - BC_Apps(iApp)%CEC_INIT) * &
+                                      (1.0 - EXP(-K_CEC * Age))
+                              
+                              WeightedCEC_BC = WeightedCEC_BC + CEC_t * MassInLayer
+                              TotalMass_BC_InLayer = TotalMass_BC_InLayer + MassInLayer
+                          END IF
+                       END IF
+                    END IF
+                 END DO
+                 
+                 IF (TotalMass_BC_InLayer > 0.0) THEN
+                    AvgCEC_BC = WeightedCEC_BC / TotalMass_BC_InLayer
+                    ! Estimate Current Mass from C pools (~75% C default approx if FCarbon varies)
+                    ! Better: Use BC_Apps(1)%FCarbon if single app, or simplified.
+                    ! We use the ratio of Current C to Initial C?
+                    ! CurrentMass_BC = (BC_Labile(L) + BC_Recalc(L)) / BC_Apps(1)%FCarbon
+                    ! Just using 0.75 as safe fallback or use Avg FCarbon if needed.
+                    ! Let's use the first app's FCarbon for simplicity as most apps similar.
+                    CurrentMass_BC = (BC_Labile(L) + BC_Recalc(L)) / MAX(0.1, BC_Apps(1)%FCarbon)
+                    
+                    TotalCEC_BC = AvgCEC_BC * CurrentMass_BC
+                    
+                    ! Eq 11: Mixing (Mass Weighted)
+                    ! SOILPROP%CEC = (NativeCEC * SoilMass + BC_CEC * BC_Mass) / (SoilMass + BC_Mass)
+                    SOILPROP%CEC(L) = (NativeCEC(L) * SoilMass + TotalCEC_BC) / (SoilMass + CurrentMass_BC)
+                 END IF
+              END IF
+           END DO
+        END IF
+
+        ! 4. Output
         TotalLabile = SUM(BC_Labile)
         TotalRecalc = SUM(BC_Recalc)
         

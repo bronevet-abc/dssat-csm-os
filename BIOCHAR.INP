@@ -1,0 +1,10 @@
+!BIOCHAR.INP
+! Parameters
+@PARAM CNRF_BC Opt_bc  P_FOM   P_E   P_F   CEC_MAX K_CEC
+       0.693   25.0    51.0    0.0   0.0   100.0   0.001
+
+! Applications
+! AppDate Amount Depth FLoss FCarbon FLabile MRT1 MRT2 CN_BC CEC_INIT
+! YrDoy   kg/ha  cm    0-1   0-1     0-1     yrs  yrs  g/g
+! Example: Application on 2008-05-15 (2008136)
+! 2008136  2000.  20.   0.02  0.70    0.20    3.0  200. 100.
