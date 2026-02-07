@@ -124,16 +124,6 @@ C=====================================================================
       DYNAMIC = CONTROL % DYNAMIC
       MESOM   = ISWITCH % MESOM
 
-!     Initialize Priming Factors
-      PRIME_RATE = 1.0
-      PRIME_EFF  = 1.0
-      PRIME_BIOM = 1.0
-
-!     Initialize Priming Factors
-      PRIME_RATE = 1.0
-      PRIME_EFF  = 1.0
-      PRIME_BIOM = 1.0
-
       IF (DYNAMIC == SEASINIT .OR. DYNAMIC == RUNINIT) THEN
          CALL Biochar_Init(CONTROL)
       ENDIF
@@ -146,6 +136,10 @@ C=====================================================================
      &    WEATHER, XHLAI,                                 !Input
      &    SOILPROP)                                       !Output
 !      ENDIF
+
+      ! Biochar: Update Soil Hydraulic Properties (BD, DUL, LL, SAT)
+      CALL Biochar_UpdateSoilProps(SOILPROP)
+
 
 !     Call WATBAL first for all except seasonal initialization
       IF (DYNAMIC /= SEASINIT) THEN
