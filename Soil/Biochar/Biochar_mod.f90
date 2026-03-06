@@ -66,6 +66,7 @@
       REAL :: P_F   = 0.0   ! Negative priming on FOM->BIOM transfer
 
 !     State Variables
+      REAL, DIMENSION(NL) :: dlt_nbc_released_yesterday
       REAL, DIMENSION(NL) :: BC_Labile   ! Labile Biochar C (kg/ha)
       REAL, DIMENSION(NL) :: BC_Recalc   ! Recalcitrant Biochar C (kg/ha)
       REAL, DIMENSION(NL) :: BC_NH4_Ads  ! Adsorbed NH4 (kg N/ha)
@@ -91,6 +92,7 @@
         LOGICAL :: FEXIST
         
         ! Initialize State
+        dlt_nbc_released_yesterday = 0.0
         BC_Labile = 0.0
         BC_Recalc = 0.0
         BC_NH4_Ads = 0.0
@@ -228,7 +230,7 @@
       ! 1. Check for new applications
       IF (NumApps > 0) THEN
          DO iApp = 1, NumApps
-            IF (BC_Apps(iApp)%AppDate == CONTROL%YRDOY) THEN
+            IF (TIMDIF(BC_Apps(iApp)%AppDate, YRDOY) == 0) THEN
 
              AppliedLabile = BC_Apps(iApp)%Amount * (1.0 - BC_Apps(iApp)%FLoss) * &
                              BC_Apps(iApp)%FCarbon * BC_Apps(iApp)%FLabile
@@ -294,9 +296,6 @@
         ! 2. Decay
         DO L = 1, SOILPROP%NLAYR
            IF (SIZE(BC_Apps) > 0 .AND. NumApps > 0) THEN
-
-              
-
               ! --- Environmental Modifiers ---
               ! WF (Water Factor) - Standard DSSAT SWFAC logic
               WF = 0.0
@@ -307,14 +306,13 @@
               
               ! TF (Temperature Factor) - Lloyd & Taylor
               TF = 0.0
-              IF (ST(L) > -10.0) THEN
-                 TF = EXP(308.56 * (1.0/56.02 - 1.0/(ST(L) + 46.02)))
-              END IF
+              TF = (MAX(0.0, ST(L)) / 32.0) ** 2
+              TF = MIN(1.0, TF)
               TF = MAX(0.0, TF)
 
               ! NF (Nitrogen Factor)
               SoilBCL = BC_Labile(L)
-              Navail = NH4(L) + NO3(L)
+              Navail = NH4(L) + NO3(L) + dlt_nbc_released_yesterday(L)
               
               NF = 1.0
               IF (Navail > 0.001) THEN
@@ -380,6 +378,8 @@
               Daily_Biom_Gross = Daily_Biom_Gross + dlt_bc_biom
               Daily_Hum_Gross  = Daily_Hum_Gross + dlt_bc_hum
               Daily_N_Net      = Daily_N_Net + dlt_nbc
+              
+              dlt_nbc_released_yesterday(L) = dlt_nbc_released
 
            END IF
         END DO

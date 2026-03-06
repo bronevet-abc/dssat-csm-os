@@ -755,10 +755,9 @@
            ! And for N/P.
            
            ! Inputs to SOM1
-           DIFF_C = (CFMETS1(L) + CFSTRS1(L) + CFS2S1(L) + CFS3S1(L)) * (1.0 - P_EFF_L)
-           DLTSOM1C(L) = DLTSOM1C(L) - DIFF_C
-           newCO2(L)   = newCO2(L)   + DIFF_C
-           
+           DIFF_C = CFMETS1(L) * (1.0 - P_EFF_L)
+           CFMETS1(L) = CFMETS1(L) - DIFF_C
+           newCO2(L)  = newCO2(L)  + DIFF_C
            ! N associated (Approximate using C:N of source or destination? Use destination SOM1)
            ! Or use corresponding E fluxes: EFMETS1...
            ! Wait, EFMETS1 is ARRAY (0:NL, NELEM).
@@ -766,29 +765,44 @@
            ! Let's check declared types.
            ! EFMETS1(0:NL, NELEM). Yes.
            DO IEL = 1, N_ELEMS
-              DIFF_E = (EFMETS1(L,IEL) + EFSTRS1(L,IEL) + EFS2S1(L,IEL) + EFS3S1(L,IEL)) * (1.0 - P_EFF_L)
-              DLTSOM1E(L,IEL) = DLTSOM1E(L,IEL) - DIFF_E
-              MNR(L,IEL) = MNR(L,IEL) + DIFF_E
+              DIFF_E = EFMETS1(L,IEL) * (1.0 - P_EFF_L)
+              EFMETS1(L,IEL) = EFMETS1(L,IEL) - DIFF_E
+              
+              DIFF_E = EFSTRS1(L,IEL) * (1.0 - P_EFF_L)
+              EFSTRS1(L,IEL) = EFSTRS1(L,IEL) - DIFF_E
+
+              DIFF_E = EFS2S1(L,IEL) * (1.0 - P_EFF_L)
+              EFS2S1(L,IEL) = EFS2S1(L,IEL) - DIFF_E
+
+              DIFF_E = EFS3S1(L,IEL) * (1.0 - P_EFF_L)
+              EFS3S1(L,IEL) = EFS3S1(L,IEL) - DIFF_E
            END DO
            
            ! Inputs to SOM2
-           DIFF_C = (CFSTRS2(L) + CFS1S2(L)) * (1.0 - P_EFF_L)
-           DLTSOM2C(L) = DLTSOM2C(L) - DIFF_C
-           newCO2(L)   = newCO2(L)   + DIFF_C
+           DIFF_C = CFSTRS2(L) * (1.0 - P_EFF_L)
+           CFSTRS2(L) = CFSTRS2(L) - DIFF_C
+           newCO2(L)  = newCO2(L)  + DIFF_C
            DO IEL = 1, N_ELEMS
-              DIFF_E = (EFSTRS2(L,IEL) + EFS1S2(L,IEL)) * (1.0 - P_EFF_L)
-              DLTSOM2E(L,IEL) = DLTSOM2E(L,IEL) - DIFF_E
-              MNR(L,IEL) = MNR(L,IEL) + DIFF_E
+              DIFF_E = EFSTRS2(L,IEL) * (1.0 - P_EFF_L)
+              EFSTRS2(L,IEL) = EFSTRS2(L,IEL) - DIFF_E
+
+              DIFF_E = EFS1S2(L,IEL) * (1.0 - P_EFF_L)
+              EFS1S2(L,IEL) = EFS1S2(L,IEL) - DIFF_E
            END DO
            
            ! Inputs to SOM3
-           DIFF_C = (CFSTRS23(L) + CFS1S3(L) + CFS2S3(L)) * (1.0 - P_EFF_L)
-           DLTSOM3C(L) = DLTSOM3C(L) - DIFF_C
+           DIFF_C = CFSTRS23(L) * (1.0 - P_EFF_L)
+           CFSTRS23(L) = CFSTRS23(L) - DIFF_C
            newCO2(L)   = newCO2(L)   + DIFF_C
            DO IEL = 1, N_ELEMS
-              DIFF_E = (EFSTRS23(L,IEL) + EFS1S3(L,IEL) + EFS2S3(L,IEL)) * (1.0 - P_EFF_L)
-              DLTSOM3E(L,IEL) = DLTSOM3E(L,IEL) - DIFF_E
-              MNR(L,IEL) = MNR(L,IEL) + DIFF_E
+              DIFF_E = EFSTRS23(L,IEL) * (1.0 - P_EFF_L)
+              EFSTRS23(L,IEL) = EFSTRS23(L,IEL) - DIFF_E
+
+              DIFF_E = EFS1S3(L,IEL) * (1.0 - P_EFF_L)
+              EFS1S3(L,IEL) = EFS1S3(L,IEL) - DIFF_E
+
+              DIFF_E = EFS2S3(L,IEL) * (1.0 - P_EFF_L)
+              EFS2S3(L,IEL) = EFS2S3(L,IEL) - DIFF_E
            END DO
            
            ! 2. Partitioning (P_BIOM): Affects FOM -> BIOM (SOM1).
@@ -808,14 +822,14 @@
            ! And update DLTSOM1C, DLTSOM2C.
            
            DIFF_C = CFSTRS1(L) * (1.0 - P_BIOM_L)
-           DLTSOM1C(L) = DLTSOM1C(L) - DIFF_C
-           DLTSOM2C(L) = DLTSOM2C(L) + DIFF_C
+           CFSTRS1(L) = CFSTRS1(L) - DIFF_C
+           CFSTRS2(L) = CFSTRS2(L) + DIFF_C
            
            ! Update N/P
            DO IEL = 1, N_ELEMS
               DIFF_E = EFSTRS1(L,IEL) * (1.0 - P_BIOM_L)
-              DLTSOM1E(L,IEL) = DLTSOM1E(L,IEL) - DIFF_E
-              DLTSOM2E(L,IEL) = DLTSOM2E(L,IEL) + DIFF_E
+              EFSTRS1(L,IEL) = EFSTRS1(L,IEL) - DIFF_E
+              EFSTRS2(L,IEL) = EFSTRS2(L,IEL) + DIFF_E
            END DO
            
         ENDIF

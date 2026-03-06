@@ -152,7 +152,7 @@
       REAL, DIMENSION(NL), INTENT(IN), OPTIONAL :: PRIME_EFF
       REAL, DIMENSION(NL), INTENT(IN), OPTIONAL :: PRIME_BIOM
       
-      REAL :: P_RATE_L, P_EFF_L
+      REAL :: P_RATE_L, P_EFF_L, P_BIOM_L
 
       REAL, PARAMETER :: FOMCFrac = 0.4
       REAL, PARAMETER :: HumusCFrac = 0.526 !(=1/1.9)
@@ -645,6 +645,10 @@ C         recruit (NREQ-N CONC) g of N
 !           80% of FOM decomposition goes to CO2 (the remainder to HUM pool)
 !           Convert FOM to C units with 0.4 multiplier
             
+!           Biochar Priming on Partitioning (FOM to BIOM/HUM)
+            P_BIOM_L = 1.0
+            IF (PRESENT(PRIME_BIOM)) P_BIOM_L = PRIME_BIOM(L)
+
 !           Biochar Priming on Efficiency
             P_EFF_L = 1.0
             IF (PRESENT(PRIME_EFF)) P_EFF_L = PRIME_EFF(L)
@@ -656,7 +660,9 @@ C         recruit (NREQ-N CONC) g of N
 !           Wait, 0.8 is strictly 1-0.2? Yes.
 !           So we replace 0.8 with (1.0 - 0.2 * P_EFF_L)
             
-            newCO2_FOM(L) = (1.0 - 0.2 * P_EFF_L) * FOMCFrac * DLTFOM
+!           Apply P_BIOM_L to increase portion going to HUM and decrease CO2
+!           newCO2_FOM(L) = (1.0 - 0.2 * P_EFF_L) * FOMCFrac * DLTFOM
+            newCO2_FOM(L) = (1.0 - 0.2 * P_EFF_L) * P_BIOM_L * FOMCFrac * DLTFOM
 
 !           Amount of OM associated with immobilized N
             Immob_OM = IMMOBN * HumusCNRatio / HumusCFrac
@@ -703,8 +709,10 @@ C         recruit (NREQ-N CONC) g of N
 
 !       chp 2019-03-07 Add 20% of C, regardless of N movement. Let C decomposition
 !         drive the mass transfer.
-!       Applied P_EFF_L to the 0.2 fraction
+!       Applied P_EFF_L to the 0.2 fraction. Also add the C shifted by P_BIOM_L
         DLTHUMC(L) = DLTHUMC(L) + 0.2 * P_EFF_L * FOMCFrac * DLTFOM
+     &               + (1.0 - P_BIOM_L) * (1.0 - 0.2*P_EFF_L) * 
+     &                 FOMCFrac * DLTFOM
 
         IF (N_ELEMS > 0) THEN
 !          DLTHUMC(L) = DLTHUMC(L) + 0.2 * FOMFRAC * FON(L) * 10.0
@@ -712,7 +720,9 @@ C         recruit (NREQ-N CONC) g of N
 
 !         Change in humus N = reduction based on decomposition of humus
 !           plus addition of 20% of fresh organic matter
-          DLTNI2 = - HUMFRAC * SSOME(L,N) + 0.2 * FOMFRAC * FON(L)
+          DLTNI2 = - HUMFRAC * SSOME(L,N) + 0.2 * P_EFF_L * FOMFRAC *
+     &             FON(L) + (1.0 - P_BIOM_L) * (1.0 - 0.2*P_EFF_L) * 
+     &             FOMFRAC * FON(L)
           DLTHUME(L,N) = DLTHUME(L,N) + DLTNI2
           IF (DLTNI2.LT.0.0) THEN
             TOMINSOM = TOMINSOM + (-DLTNI2)
@@ -724,7 +734,9 @@ C         recruit (NREQ-N CONC) g of N
 !       Phosphorus
         IF (N_ELEMS > 1) THEN
 !         N:P ratio of 10 for new humus.
-          DLTPI2 = -HUMFRAC*SSOME(L,P) + 0.2*FOMFRAC*FON(L)/HumusCNRatio
+          DLTPI2 = -HUMFRAC*SSOME(L,P) + 0.2*P_EFF_L*FOMFRAC*FON(L)
+     &             /HumusCNRatio + (1.0-P_BIOM_L)*(1.0-0.2*P_EFF_L)
+     &             *FOMFRAC*FON(L)/HumusCNRatio
           IF (DLTPI2 + SSOME(L,P) < 1.E-5) THEN
             DLTPI2 = -SSOME(L,P)
           ENDIF
