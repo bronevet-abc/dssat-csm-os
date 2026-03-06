@@ -70,6 +70,7 @@
       REAL, DIMENSION(NL) :: BC_Labile   ! Labile Biochar C (kg/ha)
       REAL, DIMENSION(NL) :: BC_Recalc   ! Recalcitrant Biochar C (kg/ha)
       REAL, DIMENSION(NL) :: BC_NH4_Ads  ! Adsorbed NH4 (kg N/ha)
+      REAL, DIMENSION(NL) :: Prev_BC_Mass_g_g ! Previous day Biochar mass fraction (g/g soil)
       
 !     Flux Variables (Daily)
       REAL :: Daily_CO2_Gross   ! Total daily CO2 emission from Biochar (kg C/ha/d)
@@ -96,6 +97,7 @@
         BC_Labile = 0.0
         BC_Recalc = 0.0
         BC_NH4_Ads = 0.0
+        Prev_BC_Mass_g_g = 0.0
         NumApps = 0
         CNRF_BC = 0.693
         Opt_bc  = 25.0
@@ -578,7 +580,7 @@
           REAL :: BD_BC,  LL_BC,  DUL_BC,  SAT_BC
           REAL :: SoilMass, BC_Total_kgHa, BC_Total_C_kgHa
           REAL :: QLL_Avg, KDUL_Avg, KBD_Avg
-          REAL :: Biochar_OM_Eff
+          REAL :: Biochar_OM_Eff, Biochar_OM_Prev
           
           IF (NumApps == 0 .OR. SUM(BC_Labile) + SUM(BC_Recalc) < 1.E-6) RETURN
           
@@ -611,53 +613,58 @@
                   OrgC_Native = SOILPROP%OC(L) / 100.0
 
                  
-                 ! Saxton outputs
-                 CALL SaxtonRawls(Sand, Clay, OrgC_Native, &
+                 ! 3. Calculate Effective Properties with Biochar Delta
+                 
+                 ! Update BD
+                 Biochar_OM_Eff = BC_Mass_g_g(L) * EXP(KBD_Avg)
+                 Biochar_OM_Prev = Prev_BC_Mass_g_g(L) * EXP(KBD_Avg)
+                 
+                 CALL SaxtonRawls(Sand, Clay, OrgC_Native + Biochar_OM_Prev, &
                                   BD_Nat, LL_Nat, DUL_Nat, SAT_Nat)
-                 
-                 ! 3. Calculate Effective Properties with Biochar
-                 ! Biochar OM% added = BC_Mass_g_g * 100.0
-                 ! Apply KBD modifier for density
-                  ! Biochar OM% added = BC_Mass_g_g * 100.0
-                  ! Apply KBD modifier for density
-                  ! NOTE: SaxtonRawls expects fractions (0-1), so keep as fraction.
-                  Biochar_OM_Eff = BC_Mass_g_g(L) * EXP(KBD_Avg)
- 
-                 
-                 ! Recalculate BD with Eff OM
                  CALL SaxtonRawls(Sand, Clay, OrgC_Native + Biochar_OM_Eff, &
                                   BD_BC, LL_BC, DUL_BC, SAT_BC)
                  
-                 ! Update BD
                  ! Delta approach:
                  SOILPROP%BD(L) = SOILPROP%BD(L) + (BD_BC - BD_Nat)
                  SOILPROP%BD(L) = MAX(0.5, MIN(SOILPROP%BD(L), 2.0))
                  
                  ! Update Water Limits
                  ! DUL
-                  ! Update Water Limits
-                  ! DUL
-                  Biochar_OM_Eff = BC_Mass_g_g(L) * EXP(KDUL_Avg)
+                 Biochar_OM_Eff = BC_Mass_g_g(L) * EXP(KDUL_Avg)
+                 Biochar_OM_Prev = Prev_BC_Mass_g_g(L) * EXP(KDUL_Avg)
 
+                 CALL SaxtonRawls(Sand, Clay, OrgC_Native + Biochar_OM_Prev, &
+                                  BD_Nat, LL_Nat, DUL_Nat, SAT_Nat)
                  CALL SaxtonRawls(Sand, Clay, OrgC_Native + Biochar_OM_Eff, &
                                   BD_BC, LL_BC, DUL_BC, SAT_BC)
                  SOILPROP%DUL(L) = SOILPROP%DUL(L) + (DUL_BC - DUL_Nat)
                  
                  ! LL
                  Biochar_OM_Eff = BC_Mass_g_g(L) * EXP(QLL_Avg)
+                 Biochar_OM_Prev = Prev_BC_Mass_g_g(L) * EXP(QLL_Avg)
+
+                 CALL SaxtonRawls(Sand, Clay, OrgC_Native + Biochar_OM_Prev, &
+                                  BD_Nat, LL_Nat, DUL_Nat, SAT_Nat)
                  CALL SaxtonRawls(Sand, Clay, OrgC_Native + Biochar_OM_Eff, &
                                   BD_BC, LL_BC, DUL_BC, SAT_BC)
                  SOILPROP%LL(L) = SOILPROP%LL(L) + (LL_BC - LL_Nat)
                  
+                 ! 4. Consistency Checks
                  ! SAT (Driven by BD primarily)
                  SOILPROP%SAT(L) = 1.0 - (SOILPROP%BD(L)/2.65)
                  SOILPROP%SAT(L) = MAX(SOILPROP%DUL(L)+0.01, SOILPROP%SAT(L))
+                 
+                 ! Ensure LL < DUL
+                 SOILPROP%DUL(L) = MAX(SOILPROP%LL(L)+0.01, SOILPROP%DUL(L))
                  
                  ! Update Porosity
                  SOILPROP%POROS(L) = SOILPROP%SAT(L)
                  
                  ! Recalculate KG2PPM
-                 SOILPROP%KG2PPM(L) = 10.0 / (SOILPROP%BD(L) * SOILPROP%DLAYR(L)) 
+                 SOILPROP%KG2PPM(L) = 10.0 / (SOILPROP%BD(L) * SOILPROP%DLAYR(L))
+                 
+                 ! Save state for tomorrow
+                 Prev_BC_Mass_g_g(L) = BC_Mass_g_g(L)
              END IF
           END DO
       END SUBROUTINE Biochar_UpdateSoilProps

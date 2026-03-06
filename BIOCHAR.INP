@@ -1,4 +1,3 @@
-!BIOCHAR.INP
 ! Parameters
 @PARAM CNRF_BC Opt_bc  P_FOM   P_E   P_F   CEC_MAX K_CEC
        0.693   25.0    51.0    0.0   0.0   100.0   0.001
