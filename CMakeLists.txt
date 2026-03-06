@@ -579,6 +579,7 @@ set(
         "Soil/CERES_OrganicMatter/OpSoilOrg.for"
         "Soil/CERES_OrganicMatter/SoilOrg.for"
         "Soil/CERES_OrganicMatter/SoilOrg_init.for"
+        "Soil/Biochar/Biochar_mod.f90"
         "Soil/FloodN/FCHEM.for"
         "Soil/FloodN/FLOODI.for"
         "Soil/FloodN/Flood_Chem.for"
@@ -656,6 +657,24 @@ set(
         "Weather/WTHMOD.for"
 )
 ADD_EXECUTABLE(${EXECUTABLE_NAME} ${source_list})
+
+ADD_EXECUTABLE(Test_Biochar_New 
+    "Soil/Biochar/Test_Biochar_New.f90" 
+    "Soil/Biochar/Biochar_mod.f90" 
+    "Utilities/ModuleDefs.for"
+    "Utilities/Warning.for"
+    "Utilities/UTILS.for"
+    "Utilities/CsvOuts/csvlinklist.f90"
+    "Utilities/CsvOuts/csvoutput.f90"
+    "InputModule/OPHEAD.for"
+    "Utilities/ERROR.for"
+    "Utilities/DATES.for"
+    "Utilities/CSMVersion.for"
+    "Utilities/OSDefsLINUX.for"
+    "Utilities/READS.for"
+    "Utilities/Info.for"
+)
+
 
 foreach(source IN LISTS source_list)
     get_filename_component(source_path "${source}" PATH)

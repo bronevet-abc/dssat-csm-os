@@ -47,6 +47,7 @@ C=====================================================================
       USE ModuleDefs
       USE FloodModule
       USE GHG_mod
+      USE Biochar_mod
       IMPLICIT NONE
       EXTERNAL SOILDYN, WATBAL, CENTURY, SoilOrg, SoilNi, SoilPi, SoilKi
       SAVE
@@ -99,7 +100,7 @@ C=====================================================================
 
 !-----------------------------------------------------------------------
 !     Local variables:
-      INTEGER DYNAMIC
+      INTEGER DYNAMIC, L
       CHARACTER*1  MESOM
 
       REAL, DIMENSION(0:NL) :: newCO2 !DayCent
@@ -107,6 +108,8 @@ C=====================================================================
       REAL, DIMENSION(NL) :: SPi_Labile, NO3, NH4
       REAL, DIMENSION(0:NL) :: LITC, SSOMC
       REAL, DIMENSION(0:NL,NELEM) :: IMM, MNR
+!     Biochar Priming Factors
+      REAL, DIMENSION(NL) :: BC_Tot, PRIME_RATE, PRIME_EFF, PRIME_BIOM
       
 !     Added for tile drainage:
       REAL TDFC
@@ -121,6 +124,10 @@ C=====================================================================
       DYNAMIC = CONTROL % DYNAMIC
       MESOM   = ISWITCH % MESOM
 
+      IF (DYNAMIC == SEASINIT .OR. DYNAMIC == RUNINIT) THEN
+         CALL Biochar_Init(CONTROL)
+      ENDIF
+
 !***********************************************************************
 !     Call Soil Dynamics module 
 !      IF (DYNAMIC < OUTPUT) THEN
@@ -129,6 +136,10 @@ C=====================================================================
      &    WEATHER, XHLAI,                                 !Input
      &    SOILPROP)                                       !Output
 !      ENDIF
+
+      ! Biochar: Update Soil Hydraulic Properties (BD, DUL, LL, SAT)
+      CALL Biochar_UpdateSoilProps(SOILPROP)
+
 
 !     Call WATBAL first for all except seasonal initialization
       IF (DYNAMIC /= SEASINIT) THEN
@@ -140,6 +151,14 @@ C=====================================================================
      &    TDFC, TDLNO, UPFLOW, WINF)                      !Output
       ENDIF
 
+!     Get Biochar Priming Factors
+      IF (DYNAMIC == RATE) THEN
+         DO L = 1, SOILPROP%NLAYR
+            CALL GetBiocharPriming(L, BC_Tot(L), PRIME_RATE(L), 
+     &           PRIME_EFF(L), PRIME_BIOM(L))
+         END DO
+      ENDIF
+
 !     Soil organic matter modules
       IF (MESOM .EQ. 'P') THEN
 !       Parton (Century-based) soil organic matter module
@@ -148,7 +167,8 @@ C=====================================================================
      &  NH4, NO3, OMADATA, RLV, SENESCE,              !Input
      &  SOILPROP, SPi_Labile, ST, SW, TILLVALS,       !Input
      &  CH4_data, IMM, LITC, MNR, MULCH, newCO2,      !Output
-     &  SomLit, SomLitC, SomLitE, SSOMC)              !Output
+     &  SomLit, SomLitC, SomLitE, SSOMC,              !Output
+     &  PRIME_RATE, PRIME_EFF, PRIME_BIOM)            !Input (Biochar)
       ELSE
 !      ELSEIF (MESOM .EQ. 'G') THEN
 !       Godwin (Ceres-based) soil organic matter module (formerly NTRANS)
@@ -157,8 +177,12 @@ C=====================================================================
      &    NH4, NO3, OMAData, RLV,                         !Input
      &    SENESCE, SOILPROP, SPi_Labile, ST, SW, TILLVALS,!Input
      &    CH4_data, IMM, LITC, MNR, MULCH, newCO2,        !Output
-     &    SomLit, SomLitC, SomLitE, SSOMC)                !Output
+     &    SomLit, SomLitC, SomLitE, SSOMC,                !Output
+     &    PRIME_RATE, PRIME_EFF, PRIME_BIOM)              !Input (Biochar)
       ENDIF
+
+!     Biochar Module
+      CALL Biochar_Daily(CONTROL, SOILPROP, SW, ST, NH4, NO3, IMM, MNR)
 
 !     Inorganic N (formerly NTRANS)
       CALL SoilNi (CONTROL, ISWITCH, 
