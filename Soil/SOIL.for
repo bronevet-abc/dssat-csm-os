@@ -47,6 +47,7 @@ C=====================================================================
       USE ModuleDefs
       USE FloodModule
       USE GHG_mod
+      USE Biochar_mod
       IMPLICIT NONE
       EXTERNAL SOILDYN, WATBAL, CENTURY, SoilOrg, SoilNi, SoilPi, SoilKi
       SAVE
@@ -181,6 +182,8 @@ C=====================================================================
      &    SKi_Avail)                                      !Output
 
       IF (DYNAMIC == SEASINIT) THEN
+!       Initialize Biochar
+        CALL Biochar_Init(CONTROL)
 !       Soil water balance -- call last for initialization
         CALL WATBAL(CONTROL, ISWITCH, 
      &    ES, IRRAMT, SOILPROP, SWDELTX,                  !Input
@@ -189,6 +192,9 @@ C=====================================================================
      &    DRAIN, DRN, SNOW, SW, SWDELTS,                  !Output
      &    TDFC, TDLNO, UPFLOW, WINF)                      !Output
       ENDIF
+
+!     Apply Biochar Effects (After nutrient modules to add to available pools)
+      CALL Biochar_Daily(CONTROL, SOILPROP, NH4, NO3, SPi_AVAIL)
 
 !***********************************************************************
 
