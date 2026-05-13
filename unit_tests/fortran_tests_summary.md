@@ -4,7 +4,7 @@ This document summarizes the unit tests implemented for the Biochar module (`Bio
 
 ## Implemented Tests and Results
 
-The following tests were implemented in [test_Biochar_mod.f90](file:///usr/local/google/home/kejie/Desktop/somic/dssat-csm-os/Soil/Biochar/test_Biochar_mod.f90) and successfully passed:
+The following tests were implemented in [test_Biochar_mod.f90](file:///usr/local/google/home/kejie/Desktop/somic/dssat-csm-os/unit_tests/test_Biochar_mod.f90) and successfully passed:
 
 | Test # | Hypothesis / Name | Description | Result |
 | :--- | :--- | :--- | :--- |
@@ -37,12 +37,14 @@ Some tests could not be fully implemented or were added as placeholders that rep
 To run the tests again, navigate to the directory and execute the test binary:
 
 ```bash
-cd /usr/local/google/home/kejie/Desktop/somic/dssat-csm-os/Soil/Biochar
+cd /usr/local/google/home/kejie/Desktop/somic/dssat-csm-os/unit_tests
 ./test_Biochar_mod
+
 ```
 
 If you need to recompile the tests, you can use the following command (assuming `.o` files are present or you compile them first):
 
 ```bash
-gfortran -o test_Biochar_mod test_Biochar_mod.f90 CSMVersion.o OSDefsLINUX.o ModuleDefs.o Biochar_mod.o
+gfortran -I../Soil/Biochar -o test_Biochar_mod test_Biochar_mod.f90 CSMVersion.for ../Soil/Biochar/OSDefsLINUX.o ../Soil/Biochar/ModuleDefs.o ../Soil/Biochar/Biochar_mod.o
+
 ```
